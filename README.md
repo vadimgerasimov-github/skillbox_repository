@@ -12,6 +12,8 @@
 
 
 - Запуск и остановка индексации происходят на вкладке Management.
+
+
 ![indexing](https://github.com/user-attachments/assets/71cacf55-bfd5-4b09-a425-6284b51fbeaf)
 ![stopindexing](https://github.com/user-attachments/assets/27087bbd-6fdc-4638-8f22-3015d0a9b25a)
 
