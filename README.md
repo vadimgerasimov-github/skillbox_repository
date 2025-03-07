@@ -105,13 +105,13 @@
 - MySQL Community Server
 
 Инструкция:
-* Скачать и разархивировать папку target.
+* Скачать и разархивировать папку search_engine.
 * В папке target с помощью текстового редактора открыть файл application.yaml. В полях username, password, url указать имя пользователя, пароль, порт, которые используются в настройках соединения с MySQL на данном компьютере, при необходимости отредактировать список индексируемых сайтов.
 * Создать на компьютере через терминал или менеджер баз данных базу данных с названием “search_engine”.
 * Запустить приложение через терминал с настройками из файла application.yaml командой: 
 
 ```java
-java -jar .../target/SearchEngine-1.0-SNAPSHOT.jar --spring.config.location=file:.../target/
+java -jar .../search_engine/target/SearchEngine-1.0-SNAPSHOT.jar --spring.config.location=file:.../search_engine/target/
 ```
 
 * В браузере перейти по адресу [http://localhost:8080](http://localhost:8080/)
