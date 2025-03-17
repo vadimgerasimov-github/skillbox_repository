@@ -6,7 +6,7 @@ import searchengine.model.Lemma;
 import searchengine.model.Site;
 
 @Service
-public interface UpdatesService {
+public interface UpdateService {
     @Transactional
     void insertOrUpdateLemma(Lemma lemma);
     @Transactional

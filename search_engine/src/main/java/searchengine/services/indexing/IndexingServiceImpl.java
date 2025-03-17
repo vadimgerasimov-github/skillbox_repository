@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 @Data
 public class IndexingServiceImpl implements IndexingService {
 
-    private final UpdatesService updatesService;
+    private final UpdateService updateService;
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final IndexRepository indexRepository;
@@ -137,7 +137,7 @@ public class IndexingServiceImpl implements IndexingService {
                     site = getSiteEntity(configSite);
                     siteRepository.save(site);
                 }
-                updatesService.deleteByPathAndSite(path, site);
+                updateService.deleteByPathAndSite(path, site);
                 Document.OutputSettings outputSettings = new Document.OutputSettings();
                 outputSettings.prettyPrint(false);
                 Document document = getDocument(url);
@@ -157,7 +157,7 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     public void clearDb(List<searchengine.config.Site> sites) {
-        updatesService.clearDb();
+        updateService.clearDb();
         sites.forEach(s -> siteRepository.save(getSiteEntity(s)));
     }
 
@@ -262,7 +262,7 @@ public class IndexingServiceImpl implements IndexingService {
 
                 Lemma lemma1 = new Lemma(page.getSite(), lemma, 1);
 
-                updatesService.insertOrUpdateLemma(lemma1);
+                updateService.insertOrUpdateLemma(lemma1);
 
                 Lemma l = lemmaRepository.findByLemmaAndSite(lemma, page.getSite());
                 indexList.add(new Index(page, l, rank));

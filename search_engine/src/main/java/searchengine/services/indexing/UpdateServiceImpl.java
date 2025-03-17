@@ -10,7 +10,7 @@ import searchengine.repositories.SiteRepository;
 
 @Service
 @RequiredArgsConstructor
-public class UpdatesServiceImpl implements UpdatesService {
+public class UpdateServiceImpl implements UpdateService {
 
     private final LemmaRepository lemmaRepository;
     private final SiteRepository siteRepository;
@@ -25,6 +25,7 @@ public class UpdatesServiceImpl implements UpdatesService {
     public void clearDb() {
         siteRepository.clearDb();
     }
+
     @Override
     public void deleteByPathAndSite(String path, Site site) {
         pageRepository.deleteByPathAndSite(path, site);

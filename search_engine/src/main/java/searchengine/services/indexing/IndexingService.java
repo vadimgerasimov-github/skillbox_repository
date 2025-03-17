@@ -8,6 +8,5 @@ import searchengine.dto.indexing.IndexingResponse;
 public interface IndexingService {
     IndexingResponse startIndexing();
     IndexingResponse stopIndexing();
-    @Transactional ()
     IndexingResponse indexPage(String url);
 }
