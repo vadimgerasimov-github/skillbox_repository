@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import javax.persistence.*;
 
 @Entity
-@Table(name = "`index`")
+@Table(name = "index_table")
 @Data
 @NoArgsConstructor
 public class Index {
@@ -19,11 +19,11 @@ public class Index {
     @JoinColumn (name = "page_id", referencedColumnName = "id", nullable = false)
     private Page page;
 
-    @ManyToOne (cascade = CascadeType.MERGE, fetch = FetchType.LAZY)
+    @ManyToOne (fetch = FetchType.LAZY)
     @JoinColumn (name = "lemma_id", referencedColumnName = "id", nullable = false)
     private Lemma lemma;
 
-    @Column (name = "`rank`", nullable = false)
+    @Column (name = "index_rank", nullable = false)
     private Float rank;
 
     public Index (Page page, Lemma lemma, Float rank) {

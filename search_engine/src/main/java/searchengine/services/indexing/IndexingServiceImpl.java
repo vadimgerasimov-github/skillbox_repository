@@ -3,25 +3,27 @@ package searchengine.services.indexing;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.exception.ConstraintViolationException;
 import org.jsoup.HttpStatusException;
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import searchengine.config.Connection;
 import searchengine.config.SitesList;
 import searchengine.dto.indexing.IndexingResponse;
-import searchengine.model.Page;
-import searchengine.model.Site;
-import searchengine.model.SiteStatus;
+import searchengine.model.*;
+import searchengine.repositories.IndexRepository;
+import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
+import searchengine.services.dictionary.Dictionary;
 
 import javax.net.ssl.SSLHandshakeException;
 import java.io.IOException;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.net.URL;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -33,67 +35,58 @@ import java.util.stream.Collectors;
 @Data
 public class IndexingServiceImpl implements IndexingService {
 
-    private final PageHandlerService pageHandlerService;
-    private ExecutorService executorService;
-    private final Filter filter;
+    private final UpdatesService updatesService;
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
-    private final Connection connectionProperties;
+    private final IndexRepository indexRepository;
+    private final LemmaRepository lemmaRepository;
     private final SitesList sitesList;
+    private ExecutorService executorService;
+    private final Dictionary dictionary;
+    private final Connection connectionProperties;
     private Map<Site, String> errorsMap;
+
 
     @Override
     public IndexingResponse startIndexing() {
 
-        if (isIndexingNow()) {return new IndexingResponse(false, "Индексация уже запущена");}
+        if (isIndexingNow()) {
+            return new IndexingResponse(false, "Индексация уже запущена");
+        }
 
         errorsMap = new HashMap<>();
+        clearDb(sitesList.getSites());
+        List<Site> sites = siteRepository.findAll();
 
         CompletableFuture.runAsync(() -> {
-
-            updateDB(sitesList.getSites());
-
-            long start = System.currentTimeMillis();
-
             executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-
-            for (Site site : siteRepository.findAll()) {
-                indexSitePages(site);
+            for (Site site : sites) {
+                executorService.submit(() -> {
+                    indexSite(site);
+                });
             }
-
             executorService.shutdown();
-
-            try {
-                executorService.awaitTermination(1, TimeUnit.DAYS);
-            } catch (InterruptedException e) {
-                executorService.shutdownNow();
-            }
-
-            log.info("Индексация заняла {} секунд(ы)", (System.currentTimeMillis() - start) / 1000);
         });
 
         return new IndexingResponse(true);
     }
 
-    private void indexSitePages(Site site) {
-        executorService.submit(() -> {
-
-            ForkJoinPool forkJoinPool = new ForkJoinPool();
-
-            CompletableFuture.runAsync(() -> {
+    private void indexSite(Site site) {
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        CompletableFuture.runAsync(() -> {
+            {
                 String homePage = getHomePage(site.getUrl());
-                forkJoinPool.submit(new SiteHandlerRecursiveAction("/", homePage, site));
+                forkJoinPool.execute(new SiteHandlerRecursiveAction("/", homePage, site));
                 forkJoinPool.shutdown();
-            });
-
-            try {
-                forkJoinPool.awaitTermination(1, TimeUnit.DAYS);
-            } catch (InterruptedException e) {
-                forkJoinPool.shutdownNow();
-            } finally {
-                updateSite(site);
             }
         });
+        try {
+            forkJoinPool.awaitTermination(1, TimeUnit.DAYS);
+        } catch (InterruptedException e) {
+            forkJoinPool.shutdownNow();
+        } finally {
+            updateSite(site);
+        }
     }
 
     @Override
@@ -128,37 +121,43 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     @Override
-    public IndexingResponse indexPage(String url) throws IOException {
-        String homePage = getHomePage(url);
-        String path = new URL(url).getPath();
-        Optional<searchengine.config.Site> configSiteOptional = sitesList.getSites().stream().filter(s -> homePage.contains(getHomePage(s.getUrl()))).findAny();
-        if (configSiteOptional.isPresent()) {
-            searchengine.config.Site configSite = configSiteOptional.get();
-            Site site;
-            Optional<Site> siteEntityOptional = siteRepository.findOneByUrl(configSite.getUrl());
-            if (siteEntityOptional.isPresent()) {
-                site = siteEntityOptional.get();
-            } else {
-                site = getSiteEntity(configSite);
-                siteRepository.save(site);
-            }
-            pageRepository.deleteByPathAndSite(path, site);
-            Document.OutputSettings outputSettings = new Document.OutputSettings();
-            outputSettings.prettyPrint(false);
-            Document document = pageHandlerService.getDocument(url);
-            Page page = new Page(site, path, document.connection().response().statusCode(), document.html());
-            pageHandlerService.addPageIfNotExists(page);
-            return new IndexingResponse(true);
-        } else
-            return new IndexingResponse(false, "Данная страница находится за пределами сайтов, " + "указанных в конфигурационном файле");
+    public IndexingResponse indexPage(String url) {
+        try {
+            String path = new URL(url).getPath();
+            Optional<searchengine.config.Site> configSiteOptional = sitesList.getSites().stream()
+                    .filter(s -> getHomePage(url).contains(getHomePage(s.getUrl())))
+                    .findAny();
+            if (configSiteOptional.isPresent()) {
+                searchengine.config.Site configSite = configSiteOptional.get();
+                Site site;
+                Optional<Site> siteEntityOptional = siteRepository.findOneByUrl(configSite.getUrl());
+                if (siteEntityOptional.isPresent()) {
+                    site = siteEntityOptional.get();
+                } else {
+                    site = getSiteEntity(configSite);
+                    siteRepository.save(site);
+                }
+                updatesService.deleteByPathAndSite(path, site);
+                Document.OutputSettings outputSettings = new Document.OutputSettings();
+                outputSettings.prettyPrint(false);
+                Document document = getDocument(url);
+                Page page = new Page(site, path, document.connection().response().statusCode(), document.html());
+                addPageIfNotExists(page);
+                return new IndexingResponse(true);
+            } else
+                return new IndexingResponse(false, "Данная страница находится за пределами сайтов, " +
+                        "указанных в конфигурационном файле");
+        } catch (IOException e) {
+            return new IndexingResponse(false, defineErrorMessage(e));
+        }
     }
 
     private boolean isIndexingNow() {
         return executorService != null && !executorService.isTerminated();
     }
 
-    public void updateDB(List<searchengine.config.Site> sites) {
-        siteRepository.deleteAll();
+    public void clearDb(List<searchengine.config.Site> sites) {
+        updatesService.clearDb();
         sites.forEach(s -> siteRepository.save(getSiteEntity(s)));
     }
 
@@ -180,45 +179,37 @@ public class IndexingServiceImpl implements IndexingService {
 
         @Override
         protected void compute() {
-            if (Thread.currentThread().isInterrupted()) {
-                this.cancel(true);
-            }
             if (pageRepository.existsByPathAndSite(path, site)) {
                 return;
             }
             try {
                 Thread.sleep(500);
                 processPage();
-            } catch (HttpStatusException e) {
-                log.info(e.getMessage());
-                Page emptyPage = new Page(site, path, e.getStatusCode(), "");
-                pageHandlerService.addPageIfNotExists(emptyPage);
-            } catch (SSLHandshakeException e) {
-                errorsMap.put(site, "Unable to connect to site cause certificate problems: {}");
-            } catch (IOException e) {
-                if (e instanceof SocketException) {
-                    addLastError("Network is unreachable");
-                    executorService.shutdownNow();
-                } else if (e instanceof UnknownHostException) {
-                    addLastError("Unable to connect to site");
-                    executorService.shutdownNow();
-                } else if (e instanceof SocketTimeoutException) {
-                    log.info("Page connection timeout: {}", homePage.concat(path));
+            } catch (Exception e) {
+                String errorMessage = defineErrorMessage(e);
+                if (e instanceof SocketException || e instanceof UnknownHostException) {
+                    addLastError(errorMessage);
+                } else {
+                    log.info("{}: {}", site.getUrl().concat(path), errorMessage);
                 }
-            } catch (InterruptedException | CancellationException e) {
-                log.info(("Page processing was interrupted: {}"), homePage.concat(path));
+                if (e instanceof HttpStatusException) {
+                    Page emptyPage = new Page(site, path, ((HttpStatusException) e).getStatusCode(), "");
+                    if (isIndexingNow()) addPageIfNotExists(emptyPage);
+                }
             }
         }
 
         private void processPage() throws IOException {
-            Document document = pageHandlerService.getDocument(homePage.concat(path));
+            Document document = getDocument(homePage.concat(path));
             Page page = new Page();
             page.setSite(site);
             page.setPath(path);
             page.setCode(document.connection().response().statusCode());
             page.setContent(document.html());
-            pageHandlerService.addPageIfNotExists(page);
-            Set<String> relevantLinks = filter.getRelevantLinks(getLinksFromDoc(document), homePage, site);
+            if (isIndexingNow()) {
+                addPageIfNotExists(page);
+            } else return;
+            Set<String> relevantLinks = getRelevantLinks(getLinksFromDoc(document), homePage, site);
             Set<SiteHandlerRecursiveAction> actionSet = relevantLinks.stream()
                     .map(link -> link.substring(homePage.length()))
                     .map(path -> new SiteHandlerRecursiveAction(path, homePage, site))
@@ -235,4 +226,78 @@ public class IndexingServiceImpl implements IndexingService {
     private String getHomePage(String url) {
         return url.replaceAll("(www.)", "");
     }
+
+    private String defineErrorMessage(Exception e) {
+        if (e instanceof HttpStatusException) return "Page not found";
+        if (e instanceof SSLHandshakeException) return "Unable to connect to site cause certificate problems";
+        if (e instanceof SocketException) return "Network is unreachable";
+        if (e instanceof UnknownHostException) return "Unable to connect to site";
+        if (e instanceof SocketTimeoutException) return "Page connection timeout";
+        if (e instanceof CancellationException | e instanceof InterruptedException)
+            return "Indexation was interrupted";
+        return "";
+    }
+
+
+    public void addPageIfNotExists(Page page) {
+
+        try {
+            pageRepository.save(page);
+        } catch (ConstraintViolationException | DataIntegrityViolationException e) {
+            log.info("Page {} is already in database", page.getSite().getUrl().concat(page.getPath()));
+            return;
+        }
+
+        if (page.getCode() == 200) {
+            List<Index> indexList = new ArrayList<>();
+
+            String clearedText = dictionary.removeTags(page.getContent());
+
+            String[] text = dictionary.getWordsArray(clearedText);
+            Map<String, Integer> lemmasMap = dictionary.getLemmaMap(text);
+
+            for (Map.Entry<String, Integer> entry : lemmasMap.entrySet()) {
+                String lemma = entry.getKey();
+                Float rank = Float.valueOf(entry.getValue());
+
+                Lemma lemma1 = new Lemma(page.getSite(), lemma, 1);
+
+                updatesService.insertOrUpdateLemma(lemma1);
+
+                Lemma l = lemmaRepository.findByLemmaAndSite(lemma, page.getSite());
+                indexList.add(new Index(page, l, rank));
+            }
+            indexRepository.saveAll(indexList);
+        }
+
+        Site site = page.getSite();
+        site.setDateTime(LocalDateTime.now());
+        siteRepository.save(site);
+
+    }
+
+    @Retryable(maxAttempts = 2)
+    public Document getDocument(String url) throws IOException {
+        Document document;
+        document = Jsoup.connect(url)
+                .userAgent(connectionProperties.getUserAgent())
+                .referrer(connectionProperties.getReferrer())
+                .timeout(connectionProperties.getTimeout())
+                .get();
+        return document;
+    }
+
+    private HashSet<String> getRelevantLinks(Set<String> links, String homePage, Site site) {
+        return links.stream()
+                .map(l -> l.replace("www.", ""))
+                .filter(l -> (l.replace(homePage, "")).startsWith("/"))
+                .filter(l -> l.startsWith(homePage))
+                .filter(l -> !l.equals(homePage))
+                .filter(l -> !pageRepository.existsByPathAndSite(l.replace(homePage, ""), site))
+                .filter(l -> !l.matches(".*(sort|login|\\?|goout\\.php|lang|form|rss|#).*"))
+                .filter(l -> !l.matches("^\\S+(\\.(?i)(jpe?g|png|gif|bmp|pdf|doc?x))$"))
+                .map(l -> l.replaceAll("/$", ""))
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
 }

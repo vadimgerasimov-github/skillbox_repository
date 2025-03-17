@@ -17,7 +17,6 @@ public class Snippet {
     int lemmasCount;
     int startOfSentence;
     SearchRegex searchRegex;
-    Set<Integer> separationIndexes;
 
     public static final Comparator<Snippet> COMPARATOR =
             Comparator.comparing((Snippet s) -> s.lemmasCount).reversed()

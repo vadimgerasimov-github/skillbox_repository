@@ -23,15 +23,15 @@ import java.util.stream.Collectors;
 @Component
 @NoArgsConstructor
 public class SnippetConstructor {
-    private  String content;
-    private  Set<String> queryLemmas;
-    private  Dictionary dictionary;
-    private  SnippetSettings snippetSettings;
+    private String content;
+    private Set<String> queryLemmas;
+    private Dictionary dictionary;
+    private SnippetSettings snippetSettings;
     private String formattedText;
-    private int pageTextPixelWidth;
+    private Integer pageTextPixelWidth;
     private static final FontMetrics metrics = getMetrics();
 
-    public SnippetConstructor(String content, Set<String> queryLemmas, Dictionary ddictionary, SnippetSettings snippetSettings){
+    public SnippetConstructor(String content, Set<String> queryLemmas, Dictionary ddictionary, SnippetSettings snippetSettings) {
         this.content = content;
         this.queryLemmas = queryLemmas;
         this.dictionary = ddictionary;
@@ -207,7 +207,7 @@ public class SnippetConstructor {
         }
 
     }
-    
+
     private String format(String text) {
         return text.replaceAll("&nbsp;", " ")
                 .replaceAll("\\s{2,}", "\n")

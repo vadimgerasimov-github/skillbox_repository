@@ -4,8 +4,8 @@ import lombok.Data;
 
 @Data
 public class TotalStatistics {
-    private int sites;
-    private int pages;
-    private int lemmas;
+    private Integer sites;
+    private Integer pages;
+    private Integer lemmas;
     private boolean indexing;
 }

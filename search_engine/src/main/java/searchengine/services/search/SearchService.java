@@ -8,5 +8,5 @@ import java.net.URISyntaxException;
 
 @Service
 public interface SearchService {
-    SearchResponse search (String query, String site, Integer offset, Integer limit) throws IOException, InterruptedException, URISyntaxException;
+    SearchResponse search (String query, String site, Integer offset, Integer limit);
 }

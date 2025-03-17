@@ -18,7 +18,7 @@ import searchengine.services.snippet.SnippetConstructor;
 import javax.persistence.EntityManager;
 import javax.persistence.Query;
 import javax.persistence.Tuple;
-import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -80,12 +80,12 @@ public class SearchServiceImpl implements SearchService {
         Set<String> lemmaSet = dictionary.getLemmaMap(queryWords).keySet();
         Map<String, Integer> allQueryLemmas = new HashMap<>();
         for (String lemma : lemmaSet) {
-            String SQL = "SELECT SUM(l.frequency) FROM search_engine.lemma l WHERE l.lemma = :lemma";
+            String SQL = "SELECT SUM(l.frequency) FROM lemma l WHERE l.lemma = :lemma";
             Query frequencyQuery = entityManager.createNativeQuery(SQL);
             frequencyQuery.setParameter("lemma", lemma);
             Object frequency = frequencyQuery.getSingleResult();
             if (frequency != null) {
-                allQueryLemmas.put(lemma, ((BigDecimal) frequency).intValue());
+                allQueryLemmas.put(lemma, ((BigInteger) frequency).intValue());
             }
         }
 
@@ -115,6 +115,7 @@ public class SearchServiceImpl implements SearchService {
         setCurrentResultsCount(query.getResultList().size());
         query.setMaxResults(limit);
         query.setFirstResult(offset);
+
         Map<Page, Float> pagesWithRelevance = new LinkedHashMap<>();
         List<Tuple> results = query.getResultList();
         if (results.isEmpty()) return new HashMap<>();
@@ -131,6 +132,7 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private String getQuery() {
+
         String SQL = "SELECT p, " +
                 "SUM(i.rank) AS abs_relevance " +
                 "FROM Page p  " +

@@ -38,11 +38,6 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         List<Site> configSites = sites.getSites();
 
-        Set<String> configSiteUrlSet = configSites.stream().map(Site::getUrl).collect(Collectors.toSet());
-        Set<String> dbSiteUrlSet = siteRepository.findAll().stream().map(searchengine.model.Site::getUrl).collect(Collectors.toSet());
-        dbSiteUrlSet.removeAll(configSiteUrlSet);
-        siteRepository.deleteByUrlIn(dbSiteUrlSet);
-
         saveFavicons();
 
         TotalStatistics total = new TotalStatistics();
@@ -125,7 +120,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                     if (inputStream != null) {
                         favicon = ImageIO.read(inputStream);
                     } else log.error("Default favicon is not found");
-                } catch (Exception ee) {
+                } catch (Exception e1) {
                     log.error("Error reading default favicon");
                 }
             }
@@ -133,7 +128,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 File file = new File(externalDirectory, favIconFileName);
                 try {
                     ImageIO.write(favicon, "png", file);
-                } catch (Exception eee) {
+                } catch (Exception e2) {
                     log.error("Error writing favicon");
                 }
             }
@@ -141,5 +136,4 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
 
     }
-
 }

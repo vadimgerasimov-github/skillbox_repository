@@ -1,10 +1,9 @@
 package searchengine.services.statistics;
 
-import jico.ImageReadException;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.dto.statistics.StatisticsResponse;
 
-import java.io.IOException;
-
 public interface StatisticsService {
-    StatisticsResponse getStatistics() throws IOException, ImageReadException;
+    @Transactional()
+    StatisticsResponse getStatistics();
 }

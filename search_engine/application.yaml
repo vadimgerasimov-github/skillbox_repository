@@ -3,18 +3,27 @@ server:
 
 spring:
   datasource:
-    username: root
-    password: testtest
-    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: postgres
+    password: 12345
+    url: jdbc:postgresql://localhost:5432/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
       show-sql: true
+      temp.use_jdbc_metadata_defaults: false
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+    drop-first: false
 
   output:
     ansi:
@@ -32,14 +41,14 @@ snippet-settings:
 indexing-settings:
   sites:
 
+    - url: https://www.circusnikulin.ru/
+      name: Цирк Никулина
+
     - url: https://www.skillbox.ru
       name: Skillbox
 
     - url: https://www.lenta.ru
       name: Лента.ру
-
-    - url: https://www.circusnikulin.ru/
-      name: Цирк Никулина
 
     - url: https://www.playback.ru/
       name: PlayBack.Ru
@@ -52,9 +61,9 @@ indexing-settings:
 
     - url: https://dimonvideo.ru/
       name: Видео Димона
-
-    - url: https://nikoartgallery.com/
-      name: Art Gallery
+#
+#    - url: https://nikoartgallery.com/
+#      name: Art Gallery
 
 #    Ответ на запрос - 400
 #    - url: https://et-cetera.ru/mobile/
