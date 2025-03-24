@@ -10,7 +10,5 @@ public interface UpdateService {
     @Transactional
     void insertOrUpdateLemma(Lemma lemma);
     @Transactional
-    void clearDb();
-    @Transactional
     void deleteByPathAndSite(String path, Site site);
 }

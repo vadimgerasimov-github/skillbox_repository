@@ -22,13 +22,9 @@ public class UpdateServiceImpl implements UpdateService {
     }
 
     @Override
-    public void clearDb() {
-        siteRepository.clearDb();
-    }
-
-    @Override
     public void deleteByPathAndSite(String path, Site site) {
         pageRepository.deleteByPathAndSite(path, site);
         pageRepository.flush();
     }
+
 }

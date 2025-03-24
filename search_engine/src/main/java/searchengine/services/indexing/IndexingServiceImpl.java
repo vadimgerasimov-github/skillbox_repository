@@ -55,7 +55,7 @@ public class IndexingServiceImpl implements IndexingService {
         }
 
         errorsMap = new HashMap<>();
-        clearDb(sitesList.getSites());
+        updateDB(sitesList.getSites());
         List<Site> sites = siteRepository.findAll();
 
         CompletableFuture.runAsync(() -> {
@@ -156,8 +156,13 @@ public class IndexingServiceImpl implements IndexingService {
         return executorService != null && !executorService.isTerminated();
     }
 
-    public void clearDb(List<searchengine.config.Site> sites) {
-        updateService.clearDb();
+    public void updateDB(List<searchengine.config.Site> sites) {
+
+        indexRepository.deleteAllInBatch();
+        lemmaRepository.deleteAllInBatch();
+        pageRepository.deleteAllInBatch();
+        siteRepository.deleteAllInBatch();
+
         sites.forEach(s -> siteRepository.save(getSiteEntity(s)));
     }
 
@@ -276,7 +281,7 @@ public class IndexingServiceImpl implements IndexingService {
 
     }
 
-    @Retryable(maxAttempts = 2)
+    @Retryable()
     public Document getDocument(String url) throws IOException {
         Document document;
         document = Jsoup.connect(url)

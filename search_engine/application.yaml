@@ -61,9 +61,9 @@ indexing-settings:
 
     - url: https://dimonvideo.ru/
       name: Видео Димона
-#
-#    - url: https://nikoartgallery.com/
-#      name: Art Gallery
+
+    - url: https://nikoartgallery.com/
+      name: Art Gallery
 
 #    Ответ на запрос - 400
 #    - url: https://et-cetera.ru/mobile/
