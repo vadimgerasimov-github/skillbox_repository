@@ -9,10 +9,4 @@ import searchengine.model.Index;
 
 @Repository
 public interface IndexRepository extends JpaRepository<Index, Integer> {
-
-    // Временный метод
-    @Query(nativeQuery = true, value = "DELETE FROM index_table")
-    @Modifying
-    @Transactional
-    void deleteIndexes();
 }
